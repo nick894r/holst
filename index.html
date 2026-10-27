@@ -39,7 +39,7 @@ button.danger{color:var(--danger)}
 .row .val{width:34px;text-align:right;color:var(--mute);font-variant-numeric:tabular-nums}
 input[type=range]{width:100%;accent-color:var(--acc)}
 input[type=color]{width:34px;height:28px;padding:0;border:1px solid var(--line);border-radius:6px;background:none;cursor:pointer}
-input[type=text],input[type=number],select,textarea{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:6px 8px;width:100%}
+input[type=text],input[type=password],input[type=number],select,textarea{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:6px 8px;width:100%}
 input[type=number]{width:70px}
 .sw{display:flex;flex-wrap:wrap;gap:4px}
 .sw button{width:20px;height:20px;padding:0;border-radius:50%}
@@ -113,7 +113,7 @@ kbd{background:var(--soft);border:1px solid var(--line);border-radius:4px;paddin
 .tabbody[hidden]{display:none}
 .steps{margin:0;padding-left:20px;line-height:1.5}
 code{background:var(--soft);padding:0 4px;border-radius:4px}
-#sIce{height:130px;font-size:12px}
+[hidden]{display:none!important}
 .row input[type=text]{flex:1}
 </style>
 </head>
@@ -130,6 +130,7 @@ code{background:var(--soft);padding:0 4px;border-radius:4px}
   <button id="bProps" title="Показать/скрыть панель свойств">Свойства</button>
   <span class="grow"></span>
   <div id="peers"></div>
+  <span class="chip" id="admBadge" hidden>👑 Админ</span><span class="chip" id="lockBadge" hidden>🔒 Холст заблокирован</span><button id="bLock" hidden>🔒 Заблокировать холст</button>
   <button id="bWho" title="Обзор всего поля и участников (удерживайте Tab)">Кто здесь</button>
   <button id="bChat">Чат<span class="badge" id="chatBadge" hidden></span></button>
   <button id="bNet">Соединение</button>
@@ -138,6 +139,7 @@ code{background:var(--soft);padding:0 4px;border-radius:4px}
     <div class="pop">
       <button id="fPng">Скачать как PNG</button>
       <button id="fPngT">Скачать PNG без фона</button>
+      <button id="fPngSel">PNG только выделенного</button>
       <button id="fJson">Сохранить в JSON</button>
       <button id="fLoad">Загрузить из JSON…</button>
       <button id="fNew" class="danger">Новый пустой холст…</button>
@@ -224,10 +226,12 @@ code{background:var(--soft);padding:0 4px;border-radius:4px}
   <p class="mute" style="margin:0">Нажмите на кнопку с клавишей, затем на новую комбинацию. Esc — отмена, × — убрать привязку. Всё хранится на этом устройстве.</p>
   <div id="keysBox" class="keys"></div>
   <div><button type="button" id="keysReset">Сбросить клавиши по умолчанию</button></div>
-  <h4>Сеть</h4>
-  <p class="mute" style="margin:0">Если соединиться не получается (мобильный интернет, блокировки, часть стран), нужен TURN-сервер — ретранслятор. Вставьте список в формате JSON; указывать его нужно у обоих участников. Через ретранслятор идёт зашифрованный трафик холста.</p>
-  <textarea id="sIce" placeholder='[{"urls":"turn:host:3478","username":"...","credential":"..."}]'></textarea>
-  <div><button type="button" id="sIcePreset">Подставить публичный бесплатный пример</button></div>
+  <h4>Администратор</h4>
+  <div id="admLogin" class="row"><input type="password" id="sAdmCode" placeholder="Секретный код" autocomplete="off" style="flex:1"><button type="button" id="sAdmGo">Войти</button></div>
+  <div id="admBox" hidden>
+    <p class="mute" style="margin:0">Режим администратора включён: можно двигать, менять и удалять чужие рисунки, блокировать холст для остальных и ставить метки-пинги (инструмент «Пинг» или Alt + клик по холсту).</p>
+    <div class="btns"><button type="button" id="sLock">Заблокировать холст</button><button type="button" id="sAdmOut" class="danger">Выйти из режима</button></div>
+  </div>
   <h4>Чат и данные</h4>
   <div class="row"><label for="sChatSave">Хранить историю чата на этом устройстве</label><input type="checkbox" id="sChatSave"></div>
   <div class="btns"><button type="button" id="sChatWipe" class="danger">Очистить чат здесь</button><button type="button" id="sBoardWipe" class="danger">Забыть сохранённое поле</button></div>
@@ -335,8 +339,9 @@ const objs=new Map();let log=[];const logKeys=new Set();let zMax=0;
 let sel=new Set();const view={x:0,y:0,z:1};
 const people=new Map();
 const TYPES=['stroke','line','rect','ellipse','token','text','cells'];
-const defaults=()=>({id:'',owner:'',on:'',type:'stroke',x:0,y:0,c:'#000000',a:1,s:3,f:0,w:0,h:0,pts:[],p:[],cells:[],cs:32,nm:'',sh:'circle',g:[],z:0,v:1,d:0,t0:0,r:0,ar:0});
-const alive=o=>o&&!o.d, mine=o=>o.owner===me.id;
+const defaults=()=>({id:'',owner:'',on:'',type:'stroke',x:0,y:0,c:'#000000',a:1,s:3,f:0,w:0,h:0,pts:[],p:[],cells:[],cs:32,nm:'',sh:'circle',g:[],z:0,v:1,d:0,t0:0,r:0,ar:0,lk:0});
+let isAdmin=false,boardLocked=false,lockTs=0;
+const alive=o=>o&&!o.d, mine=o=>o.owner===me.id||isAdmin, lockedOut=()=>boardLocked&&!isAdmin;
 const full=o=>{const r={};for(const k in o)if(k[0]!=='_')r[k]=o[k];return r};
 function mk(type,props){return Object.assign(defaults(),{id:rid()+rid(),owner:me.id,on:me.name,type,c:S.color,a:S.alpha,z:++zMax,t0:Date.now()},props)}
 function sanitize(r){
@@ -346,7 +351,7 @@ function sanitize(r){
   for(const k of ['c','nm','on','sh'])if(typeof r[k]==='string')o[k]=r[k].slice(0,k==='nm'?2000:60);
   for(const k of ['pts','p','cells'])if(Array.isArray(r[k])&&r[k].every(Number.isFinite))o[k]=r[k];
   if(Array.isArray(r.g))o.g=r.g.filter(x=>typeof x==='string').slice(0,8);
-  o.f=r.f?1:0;o.d=r.d?1:0;o.ar=r.ar?1:0;if(o.cs<=0)o.cs=32;
+  o.f=r.f?1:0;o.d=r.d?1:0;o.ar=r.ar?1:0;o.lk=r.lk?1:0;if(o.cs<=0)o.cs=32;
   zMax=Math.max(zMax,o.z);return o;
 }
 
@@ -411,7 +416,7 @@ function hitObj(o,wx,wy,tol){
 function pick(wx,wy){const tol=6/view.z,l=getOrder();for(let i=l.length-1;i>=0;i--)if(hitObj(l[i],wx,wy,tol))return l[i];return null}
 const expandGroup=o=>o.g.length?getOrder().filter(q=>q.g[0]===o.g[0]):[o];
 const selObjs=()=>[...sel].map(id=>objs.get(id)).filter(alive);
-const editable=()=>selObjs().filter(mine);
+const editable=()=>lockedOut()?[]:selObjs().filter(o=>mine(o)&&!o.lk);
 function pruneSel(){for(const id of [...sel])if(!alive(objs.get(id)))sel.delete(id)}
 
 /* ============================== сеть: ядро ============================== */
@@ -435,6 +440,7 @@ function onMessage(str,link){
   if(msg.t==='chatReq'){chatServe(link,msg);return}
   if(msg.t==='chatHist'){chatGot(msg);return}
   if(msg.t==='sync'){
+    if(msg.lock)applyLock(msg.lock);
     const r=mergeIn(msg.objs,msg.log);ensureLog(r.chObjs);
     if(r.chObjs.length||r.chLog.length){
       const fw=JSON.stringify({t:'sync',objs:r.chObjs.map(full),log:r.chLog});
@@ -445,6 +451,8 @@ function onMessage(str,link){
   if(msg.m&&dedupe(msg.m))return;
   if(msg.t==='ops')remoteOps(msg);
   else if(msg.t==='chat')chatAdd(msg.msg);
+  else if(msg.t==='ping')recvPing(msg);
+  else if(msg.t==='lock')applyLock(msg);
   else if(msg.t==='cur'||msg.t==='hello'){
     const u=msg.u;if(u&&typeof u.id==='string'&&u.id!==me.id){
       const p=people.get(u.id)||{};p.name=String(u.name||'?').slice(0,30);p.color=String(u.color||'#888').slice(0,20);p.seen=Date.now();
@@ -455,16 +463,18 @@ function onMessage(str,link){
   }
   const s=str;for(const l of links)if(l!==link)l.send(s);
 }
-function snapshotMsg(){return {t:'sync',objs:[...objs.values()].map(full),log}}
+function snapshotMsg(){return {t:'sync',objs:[...objs.values()].map(full),log,lock:lockTs?{on:boardLocked,ts:lockTs,adm:ADMIN_HASH}:undefined}}
 function sendHello(){broadcast({t:'hello',u:{id:me.id,name:me.name,color:me.color}})}
 function remoteOps(msg){
   if(typeof msg.by!=='string')return;
+  const adminMsg=msg.adm===ADMIN_HASH;
+  if(boardLocked&&!adminMsg)return;
   for(const op of msg.ops||[]){
     if(!op||typeof op.id!=='string'||!op.p)continue;
     let o=objs.get(op.id);
-    if(!o){const c=sanitize(Object.assign({},op.p,{id:op.id}));if(!c||c.owner!==msg.by||op.p.type==null)continue;objs.set(c.id,c);o=c}
+    if(!o){const c=sanitize(Object.assign({},op.p,{id:op.id}));if(!c||(c.owner!==msg.by&&!adminMsg)||op.p.type==null)continue;objs.set(c.id,c);o=c}
     else{
-      if(o.owner!==msg.by)continue;
+      if(o.owner!==msg.by&&!adminMsg)continue;
       if((op.p.v||0)<(o.v||0))continue;
       const c=sanitize(Object.assign({},o,op.p,{id:o.id,owner:o.owner}));if(!c)continue;
       Object.assign(o,c);bcache.delete(o);
@@ -515,7 +525,7 @@ function flushLive(){
     if(p===null){ops.push({id,p:full(o)});G.live.set(id,{})}
     else if(Object.keys(p).length){ops.push({id,p:Object.assign({},p,{v:o.v})});G.live.set(id,{})}
   }
-  if(ops.length)broadcast({t:'ops',by:me.id,live:true,ops});
+  if(ops.length)broadcast({t:'ops',by:me.id,adm:admTag(),live:true,ops});
 }
 setInterval(flushLive,80);
 function diffObj(a,b){const r={};for(const k in b){if(k[0]==='_'||k==='v')continue;if(JSON.stringify(b[k])!==JSON.stringify(a[k]))r[k]=b[k]}return r}
@@ -531,10 +541,10 @@ function commit(noHist){
     ub.set(id,before);ua.set(id,clone(o));if(o.d)dead.push(o);
   }
   for(const o of dead){o.pts=[];o.p=[];o.cells=[];bcache.delete(o)}
-  if(liveDel.length)broadcast({t:'ops',by:me.id,live:true,ops:liveDel});
+  if(liveDel.length)broadcast({t:'ops',by:me.id,adm:admTag(),live:true,ops:liveDel});
   if(ops.length){
     for(const op of ops)addLog({k:op.k,t:op.t,id:op.id,p:op.lp});
-    broadcast({t:'ops',by:me.id,live:false,ops});
+    broadcast({t:'ops',by:me.id,adm:admTag(),live:false,ops});
     if(!noHist){undoS.push({before:ub,after:ua});if(undoS.length>200)undoS.shift();redoS.length=0}
     scheduleSave();
   }
@@ -552,17 +562,19 @@ function applySnap(map){
   }
   commit(true);pruneSel();dirty();syncPanel();
 }
-function undo(){const e=undoS.pop();if(!e)return;applySnap(e.before);redoS.push(e);updateUI()}
-function redo(){const e=redoS.pop();if(!e)return;applySnap(e.after);undoS.push(e);updateUI()}
+function undo(){if(lockedOut())return;const e=undoS.pop();if(!e)return;applySnap(e.before);redoS.push(e);updateUI()}
+function redo(){if(lockedOut())return;const e=redoS.pop();if(!e)return;applySnap(e.after);undoS.push(e);updateUI()}
 
 /* ============================== действия над выделением ============================== */
 function notMineNote(n){if(n)toast('Чужие рисунки трогать нельзя — только копировать (Ctrl+D)')}
 function delSel(){
-  const all=selObjs(),m=all.filter(mine);if(!all.length)return;
+  const all=selObjs(),m=all.filter(o=>mine(o)&&!o.lk);if(!all.length)return;
+  if(lockedOut()){toast('🔒 Холст заблокирован администратором');return}
   if(m.length<all.length)notMineNote(1);
   if(!m.length)return;begin();m.forEach(del);commit();syncPanel();
 }
 function groupSel(){
+  if(lockedOut()){toast('🔒 Холст заблокирован администратором');return}
   const all=selObjs(),m=all.filter(mine);
   if(m.length<2){toast('Для группы выберите минимум два своих объекта');return}
   if(m.length<all.length)notMineNote(1);
@@ -573,6 +585,7 @@ function ungroupSel(){
   begin();m.forEach(o=>upd(o,{g:o.g.slice(1)}));commit();dirty();toast('Группа разобрана');
 }
 function duplicateSel(){
+  if(lockedOut()){toast('🔒 Холст заблокирован администратором');return}
   const src=getOrder().filter(o=>sel.has(o.id));if(!src.length)return;
   begin();const gmap=new Map(),off=S.snap?S.gs:24,ns=new Set();
   for(const o of src){
@@ -583,6 +596,7 @@ function duplicateSel(){
   commit();sel=ns;syncPanel();dirty();toast('Копия создана — теперь она ваша');
 }
 function zOrder(front){
+  if(lockedOut())return;
   const m=getOrder().filter(o=>sel.has(o.id)&&mine(o));if(!m.length)return;
   begin();
   if(front){m.forEach(o=>upd(o,{z:++zMax}))}
@@ -651,7 +665,7 @@ function render(){
   const wx0=-view.x/view.z,wy0=-view.y/view.z,wx1=(W-view.x)/view.z,wy1=(H-view.y)/view.z;
   if(S.grid)drawGridWorld(ctx,wx0,wy0,wx1,wy1,S.gs,view.z,S.galpha/100,th.grid);
   for(const o of getOrder()){const b=wbox(o);if(b[2]<wx0||b[0]>wx1||b[3]<wy0||b[1]>wy1)continue;drawObj(ctx,o)}
-  ctx.setTransform(dpr,0,0,dpr,0,0);overlay();
+  ctx.setTransform(dpr,0,0,dpr,0,0);overlay();drawPings(ctx);
   const z=Math.round(view.z*100)+'%';if($('#bZoom').textContent!==z)$('#bZoom').textContent=z;
 }
 const HND=[['nw',0,0],['n',.5,0],['ne',1,0],['e',1,.5],['se',1,1],['s',.5,1],['sw',0,1],['w',0,.5]];
@@ -711,6 +725,8 @@ cv.addEventListener('pointerdown',e=>{
   if(e.button===1||e.button===2||(e.button===0&&(S.tool==='hand'||space))){drag={k:'pan',sx:sp.x,sy:sp.y,vx:view.x,vy:view.y};cv.style.cursor='grabbing';return}
   if(e.button!==0)return;
   const t=S.tool;
+  if(isAdmin&&e.altKey){sendPing(w);return}
+  if(lockedOut()&&!['select','hand','eyedrop'].includes(t)){toast('🔒 Холст заблокирован администратором');return}
   if(t!=='select'&&sel.size){sel.clear();syncPanel()}
   if(t==='select')return downSelect(e,w,sp);
   const p=sn(w);
@@ -728,7 +744,9 @@ cv.addEventListener('pointerdown',e=>{
     begin();const o=add(mk('token',{x:p.x,y:p.y,s:S.sizes.token,nm:'Фишка',sh:S.shape,f:1,a:S.alpha}));drag={k:'token',o,p0:p};
   }else if(t==='text'){
     begin();const o=add(mk('text',{x:p.x,y:p.y,s:S.sizes.text,nm:'Текст'}));commit();sel=new Set([o.id]);syncPanel();focusName();
-  }
+  }else if(t==='eyedrop'){
+    const o=pick(w.x,w.y);if(o){S.color=o.c;saveSet();syncPanelValues();toast('Цвет взят: '+o.c)}else toast('Нажмите на объект, чтобы взять его цвет');
+  }else if(t==='ping'){sendPing(w)}
 });
 function downSelect(e,w,sp){
   const hh=handleAt(sp);
@@ -745,6 +763,7 @@ function downSelect(e,w,sp){
     syncPanel();dirty();
     const m=editable();
     if(m.length&&!e.shiftKey&&mine(hit)){begin();drag={k:'move',w0:w,orig:new Map(m.map(o=>[o.id,{x:o.x,y:o.y}]))}}
+    else if(hit.lk&&mine(hit))toast('Объект закреплён (Ctrl+L — открепить)');
     else if(!mine(hit))toast('Рисунок принадлежит: '+(hit.on||'другому участнику')+'. Двигать нельзя, копировать — Ctrl+D');
   }else{
     if(!e.shiftKey)sel.clear();
@@ -817,7 +836,7 @@ function hover(w,sp){
     const hh=handleAt(sp);
     if(hh){cv.style.cursor=HCUR[hh.n];$('#status').textContent=hh.n==='rot'?'Поворот (Shift — шаг 15°)':'Потяните, чтобы изменить размер (Shift — свободно)';$('#status').style.visibility='visible';return}
     o=pick(w.x,w.y);cv.style.cursor=o?(mine(o)?'move':'default'):'default';
-    if(o)txt=({stroke:'Рисунок',line:(o.ar?'Стрелка':'Линия'),rect:'Прямоугольник',ellipse:'Овал',token:'Фишка «'+o.nm+'»',text:'Текст',cells:'Клетки'})[o.type]+' — '+(mine(o)?'ваш':'владелец: '+(o.on||'?'))+(o.g.length?' · в группе':'');
+    if(o)txt=({stroke:'Рисунок',line:(o.ar?'Стрелка':'Линия'),rect:'Прямоугольник',ellipse:'Овал',token:'Фишка «'+o.nm+'»',text:'Текст',cells:'Клетки'})[o.type]+' — '+(o.owner===me.id?'ваш':'владелец: '+(o.on||'?'))+(o.lk?' · закреплён':'')+(o.g.length?' · в группе':'');
   }else cv.style.cursor=S.tool==='hand'?'grab':'crosshair';
   if($('#status').textContent!==txt)$('#status').textContent=txt;
   $('#status').style.visibility=txt?'visible':'hidden';
@@ -857,7 +876,7 @@ function paintCells(o,w){
 function eraseAt(c){
   const R=S.sizes.eraser/2;
   for(const o of getOrder().slice()){
-    if(!mine(o)||o.d)continue;
+    if(!mine(o)||o.lk||o.d)continue;
     const b=wbox(o);if(c.x<b[0]-R||c.x>b[2]+R||c.y<b[1]-R||c.y>b[3]+R)continue;
     if(o.type==='stroke'&&!S.whole)splitStroke(o,c,R);
     else if(o.type==='cells'&&!S.whole)eraseCells(o,c,R);
@@ -895,14 +914,15 @@ function eraseCells(o,c,R){
 
 /* ===== горячие клавиши (настраиваются в «Настройках») ===== */
 const ACTIONS=[
-['tool:select','Выделение','KeyV','Инструменты'],['tool:hand','Рука','KeyH'],['tool:brush','Кисть','KeyB'],['tool:cells','Клетки','KeyP'],['tool:eraser','Ластик','KeyE'],['tool:line','Линия','KeyL'],['tool:arrow','Стрелка','KeyA'],['tool:rect','Прямоугольник','KeyR'],['tool:ellipse','Овал','KeyO'],['tool:token','Фишка','KeyK'],['tool:text','Текст','KeyT'],
+['tool:select','Выделение','KeyV','Инструменты'],['tool:hand','Рука','KeyH'],['tool:brush','Кисть','KeyB'],['tool:cells','Клетки','KeyP'],['tool:eraser','Ластик','KeyE'],['tool:line','Линия','KeyL'],['tool:arrow','Стрелка','KeyA'],['tool:rect','Прямоугольник','KeyR'],['tool:ellipse','Овал','KeyO'],['tool:token','Фишка','KeyK'],['tool:text','Текст','KeyT'],['tool:eyedrop','Пипетка (взять цвет)','KeyI'],['tool:ping','Пинг — метка для всех (админ)','KeyQ'],
 ['group','Сгруппировать','Ctrl+KeyG','Объекты'],['ungroup','Разгруппировать','Ctrl+Shift+KeyG'],['dup','Копия (дубликат)','Ctrl+KeyD'],['del','Удалить','Delete'],['del2','Удалить (запасная)','Backspace'],['selAll','Выделить всё','Ctrl+KeyA'],['deselect','Снять выделение / закрыть обзор','Escape'],['front','Поднять наверх','BracketRight'],['back','Опустить вниз','BracketLeft'],
 ['rotCW','Повернуть на 15° по часовой','Period'],['rotCCW','Повернуть на 15° против часовой','Comma'],['flipH','Отразить по горизонтали','Shift+KeyH'],['flipV','Отразить по вертикали','Shift+KeyV'],
 ['alignL','Выровнять по левому краю',''],['alignC','Выровнять по центру',''],['alignR','Выровнять по правому краю',''],['alignT','Выровнять по верху',''],['alignM','Выровнять по середине',''],['alignB','Выровнять по низу',''],
 ['nudgeL','Сдвинуть влево','ArrowLeft'],['nudgeR','Сдвинуть вправо','ArrowRight'],['nudgeU','Сдвинуть вверх','ArrowUp'],['nudgeD','Сдвинуть вниз','ArrowDown'],
 ['nudgeL10','Сдвинуть влево (крупно)','Shift+ArrowLeft'],['nudgeR10','Сдвинуть вправо (крупно)','Shift+ArrowRight'],['nudgeU10','Сдвинуть вверх (крупно)','Shift+ArrowUp'],['nudgeD10','Сдвинуть вниз (крупно)','Shift+ArrowDown'],
 ['undo','Отменить','Ctrl+KeyZ','Правка'],['redo','Повторить','Ctrl+Shift+KeyZ'],['redo2','Повторить (запасная)','Ctrl+KeyY'],
-['fit','Показать всё','Digit0','Вид и общение'],['fitSel','К выделению','KeyF'],['zoomIn','Приблизить','Equal'],['zoomOut','Отдалить','Minus'],['pan','Двигать поле (удерживать)','Space'],['who','Кто здесь — обзор поля (удерживать)','Tab'],['chat','Показать / скрыть чат','KeyC']
+['fit','Показать всё','Digit0','Вид и общение'],['fitSel','К выделению','KeyF'],['zoomIn','Приблизить','Equal'],['zoomOut','Отдалить','Minus'],['pan','Двигать поле (удерживать)','Space'],['who','Кто здесь — обзор поля (удерживать)','Tab'],['chat','Показать / скрыть чат','KeyC'],
+['copy','Копировать','Ctrl+KeyC','Дополнительно'],['cut','Вырезать','Ctrl+KeyX'],['paste','Вставить','Ctrl+KeyV'],['pin','Закрепить / открепить','Ctrl+KeyL'],['toggleGrid','Показать / скрыть сетку','KeyG'],['toggleSnap','Привязка к сетке вкл/выкл','Shift+KeyG'],['zoom100','Масштаб 100%','Digit1']
 ];
 const ACT=[];{let g='';for(const a of ACTIONS){if(a[3])g=a[3];ACT.push({id:a[0],name:a[1],def:a[2],grp:g})}}
 let userKeys=jparse(store.get('cvs.keys'))||{};
@@ -944,6 +964,13 @@ function runAction(id){
     case 'pan':space=true;cv.style.cursor='grab';return;
     case 'who':whoHold=true;whoUpdateVis();return;
     case 'chat':chatToggle();return;
+    case 'copy':copySel();return;
+    case 'cut':cutSel();return;
+    case 'paste':pasteSel();return;
+    case 'pin':togglePin();return;
+    case 'toggleGrid':S.grid=!S.grid;saveSet();syncPanelValues();dirty();toast(S.grid?'Сетка включена':'Сетка скрыта');return;
+    case 'toggleSnap':S.snap=!S.snap;saveSet();syncPanelValues();toast(S.snap?'Привязка к сетке включена':'Привязка к сетке выключена');return;
+    case 'zoom100':$('#bZoom').click();return;
   }
   const base=id.replace('10','');
   if(NUDGE[base]){const k=id.endsWith('10')?(S.snap?S.gs:10):1;nudge(NUDGE[base][0]*k,NUDGE[base][1]*k)}
@@ -987,9 +1014,11 @@ const ICONS={
   rect:'<rect x="4" y="6" width="16" height="12" rx="1"/>',
   ellipse:'<ellipse cx="12" cy="12" rx="8" ry="6"/>',
   token:'<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5"/>',
-  text:'<path d="M5 6V4h14v2 M12 4v16 M9 20h6"/>'
+  text:'<path d="M5 6V4h14v2 M12 4v16 M9 20h6"/>',
+  eyedrop:'<path d="M14 5l5 5-9 9H5v-5z M13 6l5 5"/>',
+  ping:'<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/>'
 };
-const TOOLS=[['select','V','Выделение и перемещение'],['hand','H','Рука (панорама)'],['brush','B','Кисть'],['cells','P','Клетки сетки'],['eraser','E','Ластик'],['line','L','Линия'],['arrow','A','Стрелка'],['rect','R','Прямоугольник'],['ellipse','O','Овал'],['token','K','Фишка (токен)'],['text','T','Текст']];
+const TOOLS=[['select','V','Выделение и перемещение'],['hand','H','Рука (панорама)'],['brush','B','Кисть'],['cells','P','Клетки сетки'],['eraser','E','Ластик'],['line','L','Линия'],['arrow','A','Стрелка'],['rect','R','Прямоугольник'],['ellipse','O','Овал'],['token','K','Фишка (токен)'],['text','T','Текст'],['eyedrop','I','Пипетка'],['ping','Q','Пинг']];
 const toolsEl=$('#tools');
 for(const [id,key,title] of TOOLS){
   const b=document.createElement('button');b.dataset.tool=id;b.title=title+' ('+key+')';
@@ -997,6 +1026,7 @@ for(const [id,key,title] of TOOLS){
   b.onclick=()=>setTool(id);toolsEl.appendChild(b);
 }
 function setTool(t){
+  if(t==='ping'&&!isAdmin){toast('Пинг доступен только администратору');return}
   if(G)commit();
   S.tool=t;if(t!=='select'){sel.clear()}
   for(const b of toolsEl.children)b.classList.toggle('on',b.dataset.tool===t);
@@ -1032,7 +1062,7 @@ function applyProp(k,v){
 function syncPanel(){
   const so=selObjs(),ed=so.filter(mine),first=ed[0]||so[0],t=S.tool;
   const types=new Set(so.map(o=>o.type));
-  $('#pTitle').textContent=so.length?'Выбрано: '+so.length:({select:'Выделение',hand:'Рука',brush:'Кисть',cells:'Клетки',eraser:'Ластик',line:'Линия',arrow:'Стрелка',rect:'Прямоугольник',ellipse:'Овал',token:'Фишка',text:'Текст'})[t];
+  $('#pTitle').textContent=so.length?'Выбрано: '+so.length:({select:'Выделение',hand:'Рука',brush:'Кисть',cells:'Клетки',eraser:'Ластик',line:'Линия',arrow:'Стрелка',eyedrop:'Пипетка',ping:'Пинг',rect:'Прямоугольник',ellipse:'Овал',token:'Фишка',text:'Текст'})[t];
   let info='';
   if(so.length){const owners=[...new Set(so.map(o=>o.owner===me.id?'вы':(o.on||'?')))];info='Владелец: '+owners.join(', ');if(ed.length<so.length)info+=' · чужое можно только копировать'}
   $('#info').textContent=info;
@@ -1041,9 +1071,9 @@ function syncPanel(){
   $('#rowFill').style.display=['rect','ellipse'].includes(t)||types.has('rect')||types.has('ellipse')?'':'none';
   $('#rowWhole').style.display=t==='eraser'?'':'none';
   $('#rowAngle').style.display=ed.length&&!ed.every(o=>o.type==='cells')?'':'none';
-  $('#rowAlpha').style.display=t==='eraser'||t==='hand'?'none':'';
-  $('#rowColor').style.display=t==='eraser'||t==='hand'?'none':'';
-  $('#rowSize').style.display=t==='hand'||(t==='select'&&!so.length)||(types.size===1&&types.has('cells'))?'none':'';
+  $('#rowAlpha').style.display=t==='eraser'||t==='hand'||t==='ping'?'none':'';
+  $('#rowColor').style.display=t==='eraser'||t==='hand'||t==='ping'?'none':'';
+  $('#rowSize').style.display=t==='hand'||t==='eyedrop'||t==='ping'||(t==='select'&&!so.length)||(types.size===1&&types.has('cells'))?'none':'';
   $('#pName').value=first&&(first.type==='token'||first.type==='text')?first.nm:'';
   syncPanelValues(first);
 }
@@ -1103,11 +1133,7 @@ function sendCursor(){
 setInterval(()=>{if(links.size)broadcast({t:'cur',u:{id:me.id,name:me.name,color:me.color},x:Math.round(lastW.x),y:Math.round(lastW.y),vp:vpRect()})},2500);
 
 /* ============================== WebRTC ============================== */
-function parseIce(t){const a=jparse(t);return Array.isArray(a)&&a.length&&a.every(x=>x&&x.urls)?a:null}
-function rtcCfg(){
-  const extra=S.ice?parseIce(S.ice):null;
-  return {iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun.cloudflare.com:3478'},{urls:'stun:stun.stunprotocol.org:3478'}].concat(extra||[])};
-}
+function rtcCfg(){return {iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun.cloudflare.com:3478'},{urls:'stun:stun.stunprotocol.org:3478'}]}}
 const b64=u8=>{let s='';for(let i=0;i<u8.length;i+=8192)s+=String.fromCharCode.apply(null,u8.subarray(i,i+8192));return btoa(s)};
 const unb64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 async function pump(stream,bytes){const w=stream.writable.getWriter();w.write(bytes);w.close();return new Uint8Array(await new Response(stream.readable).arrayBuffer())}
@@ -1252,11 +1278,11 @@ function renderScene(c,list,Wp,Hp,b,bg,grid){
   for(const o of list)drawObj(c,o);
   c.setTransform(1,0,0,1,0,0);
 }
-function exportPng(transparent){
-  const b=exportBounds(40);if(!b){toast('Поле пусто');return}
+function exportPng(transparent,list){
+  const l=list||getOrder(),ub=l.length?unionBox(l):null,b=ub?[ub[0]-40,ub[1]-40,ub[2]+40,ub[3]+40]:null;if(!b){toast('Поле пусто');return}
   const bw=b[2]-b[0],bh=b[3]-b[1],sc=Math.min(2,8192/Math.max(bw,bh));
   const c=document.createElement('canvas');c.width=Math.ceil(bw*sc);c.height=Math.ceil(bh*sc);
-  renderScene(c.getContext('2d'),getOrder(),c.width,c.height,b,transparent?null:curTheme().bg,false);
+  renderScene(c.getContext('2d'),l,c.width,c.height,b,transparent?null:curTheme().bg,false);
   c.toBlob(bl=>{download(bl,'canvas-'+stamp()+'.png');toast('PNG сохранён')},'image/png');
 }
 function exportJson(){
@@ -1264,6 +1290,7 @@ function exportJson(){
   download(new Blob([JSON.stringify(data)],{type:'application/json'}),'canvas-'+stamp()+'.json');toast('JSON сохранён');
 }
 function importJson(text){
+  if(lockedOut()){toast('🔒 Холст заблокирован администратором');return}
   const d=jparse(text);
   if(!d||d.format!=='p2p-canvas'||!Array.isArray(d.objs)){toast('Это не файл холста');return}
   let list=d.objs,lg=Array.isArray(d.log)?d.log:[];
@@ -1286,7 +1313,7 @@ $('#fJson').onclick=()=>{exportJson();$('#fileMenu').open=false};
 $('#fLoad').onclick=()=>{$('#fileMenu').open=false;$('#fileIn').value='';$('#fileIn').click()};
 $('#fileIn').onchange=async e=>{const f=e.target.files[0];if(f)importJson(await f.text())};
 $('#fClear').onclick=()=>{
-  $('#fileMenu').open=false;const m=[...objs.values()].filter(o=>alive(o)&&mine(o));
+  $('#fileMenu').open=false;if(lockedOut()){toast('🔒 Холст заблокирован администратором');return}const m=[...objs.values()].filter(o=>alive(o)&&mine(o));
   if(!m.length){toast('У вас нет объектов');return}
   if(!confirm('Удалить все ваши объекты ('+m.length+')? Чужие останутся. Это можно отменить (Ctrl+Z).'))return;
   begin();m.forEach(del);commit();syncPanel();
@@ -1614,7 +1641,7 @@ function chatAdd(raw,quiet){
   const a=chat.msgs;
   if(!a.length||a[a.length-1].t<=m.t)a.push(m);else{let i=a.length;while(i>0&&a[i-1].t>m.t)i--;a.splice(i,0,m)}
   idbPut(m);
-  if(!quiet){if(chatEl.hidden&&m.u!==me.id){chat.unread++;updateChatBadge()}chatRender()}
+  if(!quiet){if(chatEl.hidden&&m.u!==me.id){chat.unread++;updateChatBadge();toast('💬 '+m.name+': '+m.text.slice(0,70))}chatRender()}
   return true;
 }
 function updateChatBadge(){const b=$('#chatBadge');b.hidden=!chat.unread;b.textContent=chat.unread}
@@ -1680,17 +1707,12 @@ $('#chatFile').onchange=async e=>{const f=e.target.files[0];if(f)chatImportText(
 /* ============================== настройки и клавиши ============================== */
 function openSettings(){
   $('#meName').value=me.name;$('#meColor').value=/^#[0-9a-f]{6}$/i.test(me.color)?me.color:'#3b5bfd';
-  $('#sIce').value=S.ice||'';$('#sUi').value=S.uiTheme;$('#sBoard').value=S.theme;$('#sWheel').value=S.wheel;$('#sAuto').checked=S.autosave;$('#sChatSave').checked=S.chatSave;
+  $('#sUi').value=S.uiTheme;$('#sBoard').value=S.theme;$('#sWheel').value=S.wheel;$('#sAuto').checked=S.autosave;$('#sChatSave').checked=S.chatSave;
   renderKeys();$('#dlgSet').showModal();
 }
 $('#bSet').onclick=openSettings;
 $('#meName').oninput=e=>{me.name=e.target.value.slice(0,30)||'Без имени';saveMe();updatePeers();sendHello()};
 $('#meColor').oninput=e=>{me.color=e.target.value;saveMe();updatePeers();sendHello()};
-$('#sIce').onchange=e=>{const t=e.target.value.trim();if(t&&!parseIce(t)){toast('Не удалось разобрать JSON — проверьте формат');return}S.ice=t;saveSet();toast('Сохранено. Создайте приглашение заново')};
-$('#sIcePreset').onclick=()=>{
-  $('#sIce').value=JSON.stringify([{urls:['turn:openrelay.metered.ca:80','turn:openrelay.metered.ca:443','turn:openrelay.metered.ca:443?transport=tcp'],username:'openrelayproject',credential:'openrelayproject'}]);
-  $('#sIce').dispatchEvent(new Event('change'));
-};
 $('#sUi').onchange=e=>{S.uiTheme=e.target.value;saveSet();applyUiTheme()};
 $('#sBoard').onchange=e=>{S.theme=e.target.value;saveSet();dirty()};
 $('#sWheel').onchange=e=>{S.wheel=e.target.value;saveSet()};
@@ -1731,9 +1753,128 @@ function refreshToolLabels(){
   }
 }
 
+/* ============================== режим администратора, пинги, блокировка ============================== */
+/* В файле хранится только хэш кода, сам код нигде не записан. */
+const ADMIN_HASH='ef00146ad469888d26722e7462320920a8d3e487acd96daca0c6a3171e95f898';
+function sha256hex(str){
+  const f=sha256hex;
+  if(!f.k){f.k=[];f.h=[];const isP=n=>{for(let i=2;i*i<=n;i++)if(n%i===0)return false;return true};
+    for(let n=2,c=0;c<64;n++)if(isP(n)){if(c<8)f.h[c]=(Math.pow(n,.5)%1)*4294967296|0;f.k[c++]=(Math.cbrt(n)%1)*4294967296|0}}
+  const K=f.k,bytes=new TextEncoder().encode(str),l=bytes.length,nb=((l+9+63)>>6)<<6,buf=new Uint8Array(nb);
+  buf.set(bytes);buf[l]=0x80;const dv=new DataView(buf.buffer);dv.setUint32(nb-4,(l*8)>>>0);dv.setUint32(nb-8,Math.floor(l*8/4294967296));
+  const h=f.h.slice(),w=new Int32Array(64),rr=(x,n)=>(x>>>n)|(x<<(32-n));
+  for(let o=0;o<nb;o+=64){
+    for(let i=0;i<16;i++)w[i]=dv.getInt32(o+i*4);
+    for(let i=16;i<64;i++){const a=w[i-15],b=w[i-2];w[i]=(w[i-16]+(rr(a,7)^rr(a,18)^(a>>>3))+w[i-7]+(rr(b,17)^rr(b,19)^(b>>>10)))|0}
+    let a=h[0],b=h[1],c=h[2],d=h[3],e=h[4],ff=h[5],g=h[6],hh=h[7];
+    for(let i=0;i<64;i++){
+      const t1=(hh+(rr(e,6)^rr(e,11)^rr(e,25))+((e&ff)^(~e&g))+K[i]+w[i])|0,t2=((rr(a,2)^rr(a,13)^rr(a,22))+((a&b)^(a&c)^(b&c)))|0;
+      hh=g;g=ff;ff=e;e=(d+t1)|0;d=c;c=b;b=a;a=(t1+t2)|0;
+    }
+    h[0]=(h[0]+a)|0;h[1]=(h[1]+b)|0;h[2]=(h[2]+c)|0;h[3]=(h[3]+d)|0;h[4]=(h[4]+e)|0;h[5]=(h[5]+ff)|0;h[6]=(h[6]+g)|0;h[7]=(h[7]+hh)|0;
+  }
+  return h.map(x=>(x>>>0).toString(16).padStart(8,'0')).join('');
+}
+const admTag=()=>isAdmin?ADMIN_HASH:undefined;
+function updateAdminUI(){
+  $('#admBadge').hidden=!isAdmin;$('#lockBadge').hidden=!boardLocked;
+  const b=$('#bLock');b.hidden=!isAdmin;b.textContent=boardLocked?'🔓 Разблокировать холст':'🔒 Заблокировать холст';
+  $('#admBox').hidden=!isAdmin;$('#admLogin').hidden=isAdmin;$('#sLock').textContent=b.textContent;
+  const pt=toolsEl.querySelector('[data-tool=ping]');if(pt)pt.style.display=isAdmin?'':'none';
+  if(!isAdmin&&S.tool==='ping')setTool('select');
+  syncPanel();dirty();
+}
+function applyLock(m){
+  if(!m||m.adm!==ADMIN_HASH||!Number.isFinite(m.ts)||m.ts<=lockTs)return;
+  lockTs=m.ts;boardLocked=!!m.on;
+  if(boardLocked&&!isAdmin&&G)commit();
+  updateAdminUI();
+  if(!isAdmin)toast(boardLocked?'🔒 Администратор заблокировал холст: рисовать нельзя':'🔓 Холст разблокирован');
+}
+function setLock(on){
+  if(!isAdmin)return;lockTs=Date.now();boardLocked=on;
+  broadcast({t:'lock',on,ts:lockTs,adm:ADMIN_HASH});updateAdminUI();toast(on?'Холст заблокирован для всех, кроме администратора':'Холст разблокирован');
+}
+$('#sAdmGo').onclick=()=>{
+  const c=$('#sAdmCode').value.trim();$('#sAdmCode').value='';
+  if(sha256hex('cvs-admin:'+c)===ADMIN_HASH){isAdmin=true;store.set('cvs.adm','1');updateAdminUI();toast('Режим администратора включён');sendHello()}
+  else toast('Неверный код');
+};
+$('#sAdmCode').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('#sAdmGo').click()}});
+$('#sAdmOut').onclick=()=>{isAdmin=false;store.set('cvs.adm','0');updateAdminUI();toast('Вы вышли из режима администратора')};
+$('#bLock').onclick=()=>setLock(!boardLocked);$('#sLock').onclick=()=>setLock(!boardLocked);
+
+/* пинг: метка видна всем 5 секунд, за экраном — стрелка к ней у края */
+const pings=[];
+function addPing(m,local){
+  pings.push({x:m.x,y:m.y,t0:performance.now(),name:String(m.name||'Админ').slice(0,30),color:String(m.color||'#e5484d').slice(0,20)});
+  if(!local)toast((m.name||'Админ')+' указывает место на холсте');
+  dirty();
+}
+function recvPing(m){if(m.adm===ADMIN_HASH&&Number.isFinite(m.x)&&Number.isFinite(m.y))addPing(m,false)}
+function sendPing(w){
+  if(!isAdmin)return;const m={t:'ping',x:Math.round(w.x),y:Math.round(w.y),name:me.name,color:me.color,adm:ADMIN_HASH};
+  broadcast(m);addPing(m,true);
+}
+function pingLabel(c,text,x,y,color){
+  c.font='600 12px system-ui,sans-serif';const w=c.measureText(text).width;
+  c.fillStyle=color;c.fillRect(x,y-12,w+10,18);c.fillStyle=lum(color)>.6?'#111':'#fff';c.textBaseline='middle';c.textAlign='left';c.fillText(text,x+5,y-3);
+}
+function drawPings(c){
+  const now=performance.now();
+  for(let i=pings.length-1;i>=0;i--)if(now-pings[i].t0>5000)pings.splice(i,1);
+  if(!pings.length)return;
+  for(const p of pings){
+    const a=now-p.t0,fade=a>4000?(5000-a)/1000:1,s=toS(p.x,p.y),M=40;
+    c.save();c.fillStyle=c.strokeStyle=p.color;c.lineWidth=3;
+    if(s.x>=0&&s.x<=W&&s.y>=0&&s.y<=H){
+      for(let k=0;k<3;k++){const ph=((a/1000)+k/3)%1;c.globalAlpha=fade*(1-ph);c.beginPath();c.arc(s.x,s.y,10+ph*46,0,Math.PI*2);c.stroke()}
+      c.globalAlpha=fade;c.beginPath();c.arc(s.x,s.y,7,0,Math.PI*2);c.fill();pingLabel(c,p.name,s.x+12,s.y-12,p.color);
+    }else{
+      const cx=W/2,cy=H/2,dx=s.x-cx,dy=s.y-cy,t=Math.min((cx-M)/Math.max(Math.abs(dx),1e-6),(cy-M)/Math.max(Math.abs(dy),1e-6)),x=cx+dx*t,y=cy+dy*t,an=Math.atan2(dy,dx);
+      c.globalAlpha=fade*(.65+.35*Math.abs(Math.sin(a/150)));c.translate(x,y);c.rotate(an);
+      c.beginPath();c.moveTo(20,0);c.lineTo(-10,-15);c.lineTo(-3,0);c.lineTo(-10,15);c.closePath();c.fill();
+      c.rotate(-an);c.globalAlpha=fade;pingLabel(c,p.name,-20,32,p.color);
+    }
+    c.restore();
+  }
+  dirty();
+}
+
+/* ============================== буфер обмена, закрепление, прочее ============================== */
+let clip=[];
+function copySel(){
+  const l=getOrder().filter(o=>sel.has(o.id));if(!l.length){toast('Сначала выделите объекты');return}
+  clip=l.map(o=>clone(full(o)));toast('Скопировано: '+l.length+' (вставка — Ctrl+V)');
+}
+function cutSel(){copySel();if(clip.length)delSel()}
+function pasteSel(){
+  if(!clip.length){toast('Буфер пуст — скопируйте объекты (Ctrl+C)');return}
+  if(lockedOut()){toast('🔒 Холст заблокирован администратором');return}
+  const b=unionBox(clip.map(c=>Object.assign({},c))),tg=mouse?lastW:toW({x:W/2,y:H/2});
+  let dx=tg.x-(b[0]+b[2])/2,dy=tg.y-(b[1]+b[3])/2;if(S.snap){dx=Math.round(dx/S.gs)*S.gs;dy=Math.round(dy/S.gs)*S.gs}
+  begin();const gmap=new Map(),ns=new Set();
+  for(const c of clip){
+    const n=sanitize(Object.assign(clone(c),{id:rid()+rid(),owner:me.id,on:me.name,x:c.x+dx,y:c.y+dy,z:++zMax,v:1,d:0,lk:0,t0:Date.now(),
+      g:c.g.map(id=>{if(!gmap.has(id))gmap.set(id,rid());return gmap.get(id)})}));
+    add(n);ns.add(n.id);
+  }
+  commit();sel=ns;syncPanel();dirty();toast('Вставлено: '+ns.size);
+}
+function togglePin(){
+  if(lockedOut()){toast('🔒 Холст заблокирован администратором');return}
+  const m=selObjs().filter(mine);if(!m.length){toast('Выделите свои объекты');return}
+  const v=m.every(o=>o.lk)?0:1;begin();m.forEach(o=>upd(o,{lk:v}));commit();
+  toast(v?'Закреплено: объекты защищены от случайного сдвига (Ctrl+L — открепить)':'Откреплено');
+}
+$('#fPngSel').onclick=()=>{
+  $('#fileMenu').open=false;const l=selObjs().sort((a,b)=>a.z-b.z);
+  if(!l.length){toast('Сначала выделите объекты');return}exportPng(true,l);
+};
+
 /* ============================== старт ============================== */
 (function init(){
-  applyUiTheme();resize();refreshToolLabels();
+  applyUiTheme();resize();refreshToolLabels();isAdmin=store.get('cvs.adm')==='1';updateAdminUI();
   if(/^https?:$/.test(location.protocol))fetch('/relay-ping').then(r=>r.text()).then(t=>{if(t==='p2p-canvas-relay')connectWS((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws',true)}).catch(()=>{});
   const saved=jparse(store.get('cvs.board'));
   if(saved){const r=mergeIn(saved.objs,saved.log);ensureLog(r.chObjs)}
