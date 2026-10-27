@@ -1,0 +1,8 @@
+{
+  "name": "p2p-canvas-relay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Relay server for Holst P2P canvas",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" }
+}
