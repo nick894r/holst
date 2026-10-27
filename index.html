@@ -115,6 +115,19 @@ kbd{background:var(--soft);border:1px solid var(--line);border-radius:4px;paddin
 code{background:var(--soft);padding:0 4px;border-radius:4px}
 [hidden]{display:none!important}
 .row input[type=text]{flex:1}
+#admBadge{cursor:pointer;font:inherit;color:inherit}
+#admMenu{right:12px;top:58px;width:300px;max-width:calc(100vw - 24px);max-height:calc(100% - 76px);overflow:auto;padding:12px;display:flex;flex-direction:column;gap:8px;z-index:25}
+#admMenu h4{margin:6px 0 0;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute)}
+#admMenu button{padding:6px 8px}
+.btns3 button.on{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+#tmpImg{position:fixed;inset:0;display:grid;place-items:center;z-index:40;background:rgba(10,12,20,.45);backdrop-filter:blur(3px)}
+.tmpbox{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px;box-shadow:var(--shadow);max-width:86vw;max-height:86vh;display:flex;flex-direction:column;gap:8px}
+.tmpbox img{max-width:82vw;max-height:70vh;border-radius:8px;display:block;object-fit:contain}
+#tmpX{position:absolute;right:6px;top:6px;padding:0 9px;font-size:18px;line-height:26px}
+#tmpCap{font-size:12px;color:var(--mute)}
+#tmpBar{height:5px;background:var(--soft);border-radius:3px;overflow:hidden}
+#tmpBar i{display:block;height:100%;width:100%;background:var(--acc)}
+#banner{position:fixed;left:50%;top:64px;transform:translateX(-50%);background:var(--acc);color:var(--acc-ink);padding:8px 18px;border-radius:12px;box-shadow:var(--shadow);z-index:35;font-weight:600;max-width:80vw;text-align:center}
 </style>
 </head>
 <body>
@@ -130,7 +143,7 @@ code{background:var(--soft);padding:0 4px;border-radius:4px}
   <button id="bProps" title="Показать/скрыть панель свойств">Свойства</button>
   <span class="grow"></span>
   <div id="peers"></div>
-  <span class="chip" id="admBadge" hidden>👑 Админ</span><span class="chip" id="lockBadge" hidden>🔒 Холст заблокирован</span><button id="bLock" hidden>🔒 Заблокировать холст</button>
+  <button class="chip" id="admBadge" hidden title="Меню администратора">👑 Админ ▾</button><span class="chip" id="lockBadge" hidden>🔒 Холст заблокирован</span><span class="chip" id="muteBadge" hidden>🔇 Чат отключён</span>
   <button id="bWho" title="Обзор всего поля и участников (удерживайте Tab)">Кто здесь</button>
   <button id="bChat">Чат<span class="badge" id="chatBadge" hidden></span></button>
   <button id="bNet">Соединение</button>
@@ -163,6 +176,7 @@ code{background:var(--soft);padding:0 4px;border-radius:4px}
   <div id="rowAlpha" class="row col"><div class="row"><label>Прозрачность (непрозрачность)</label><span class="val" id="vAlpha"></span></div><input type="range" id="pAlpha" min="5" max="100" step="1"></div>
   <div id="rowAngle" class="row col"><div class="row"><label>Поворот</label><span class="val" id="vAngle"></span></div><input type="range" id="pAngle" min="0" max="359" step="1"></div>
   <div id="rowFill" class="row"><label for="pFill">Заливка</label><input type="checkbox" id="pFill"></div>
+  <div id="rowDash" class="row"><label for="pDash">Пунктир</label><input type="checkbox" id="pDash"></div>
   <div id="rowName" class="row col"><label>Название / текст</label><input type="text" id="pName" placeholder="Название" maxlength="300"></div>
   <div id="rowShape" class="row col"><label>Форма фишки</label><select id="pShape"><option value="circle">Круг</option><option value="square">Квадрат</option><option value="diamond">Ромб</option><option value="hex">Шестиугольник</option></select></div>
   <div id="rowWhole" class="row"><label for="pWhole">Стирать объекты целиком</label><input type="checkbox" id="pWhole"></div>
@@ -207,6 +221,28 @@ code{background:var(--soft);padding:0 4px;border-radius:4px}
   <div id="whoList"></div>
 </div>
 <input type="file" id="chatFile" accept=".json,application/json" hidden>
+<input type="file" id="amFile" accept="image/*" hidden>
+<div id="banner" hidden><span id="bnText"></span><b id="bnTime"></b></div>
+<div id="tmpImg" hidden><div class="tmpbox"><button type="button" id="tmpX" title="Закрыть у меня">×</button><img id="tmpPic" alt=""><div id="tmpCap"></div><div id="tmpBar"><i></i></div></div></div>
+<div id="admMenu" class="panel" hidden>
+  <div class="row"><b style="flex:1">👑 Администратор</b><button type="button" id="amOut" class="danger">Выйти</button></div>
+  <h4>Доступ</h4>
+  <div class="btns"><button type="button" id="amLock">🔒 Заблокировать холст</button><button type="button" id="amMute">🔇 Отключить чат</button></div>
+  <h4>Метка на холсте</h4>
+  <div class="btns3"><button type="button" data-pk="excl">❗ Внимание</button><button type="button" data-pk="ask">❓ Вопрос</button><button type="button" data-pk="dot">● Точка</button></div>
+  <button type="button" id="amPingTool">Включить инструмент «Пинг» (Alt + клик тоже ставит метку)</button>
+  <h4>Фото на время для всех</h4>
+  <div class="row"><label>Показывать</label><select id="amDur" style="width:130px"><option value="15">15 секунд</option><option value="30">30 секунд</option><option value="60" selected>1 минуту</option><option value="120">2 минуты</option><option value="300">5 минут</option></select></div>
+  <div class="btns"><button type="button" id="amImg">Загрузить фото…</button><button type="button" id="amImgX">Убрать у всех</button></div>
+  <h4>Сообщение всем</h4>
+  <input type="text" id="amText" placeholder="Текст объявления" maxlength="200">
+  <div class="row"><label>Секунд</label><input type="number" id="amBnDur" value="10" min="3" max="3600" style="width:74px"><label style="flex:none;display:flex;gap:4px;align-items:center"><input type="checkbox" id="amCd"> с таймером</label></div>
+  <div class="btns"><button type="button" id="amBn">Показать</button><button type="button" id="amBnX">Убрать</button></div>
+  <h4>Остальное</h4>
+  <button type="button" id="amGather">Показать всем мою область</button>
+  <button type="button" id="amClear" class="danger">Удалить всё на холсте</button>
+  <button type="button" id="amKeys">Горячие клавиши админа…</button>
+</div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
 <!-- Настройки -->
@@ -228,10 +264,7 @@ code{background:var(--soft);padding:0 4px;border-radius:4px}
   <div><button type="button" id="keysReset">Сбросить клавиши по умолчанию</button></div>
   <h4>Администратор</h4>
   <div id="admLogin" class="row"><input type="password" id="sAdmCode" placeholder="Секретный код" autocomplete="off" style="flex:1"><button type="button" id="sAdmGo">Войти</button></div>
-  <div id="admBox" hidden>
-    <p class="mute" style="margin:0">Режим администратора включён: можно двигать, менять и удалять чужие рисунки, блокировать холст для остальных и ставить метки-пинги (инструмент «Пинг» или Alt + клик по холсту).</p>
-    <div class="btns"><button type="button" id="sLock">Заблокировать холст</button><button type="button" id="sAdmOut" class="danger">Выйти из режима</button></div>
-  </div>
+  <p id="admNote" class="mute" style="margin:0" hidden>Режим администратора включён. Все функции — в меню «👑 Админ» на верхней панели. Их горячие клавиши настраиваются в списке выше (раздел «Администратор» виден только вам).</p>
   <h4>Чат и данные</h4>
   <div class="row"><label for="sChatSave">Хранить историю чата на этом устройстве</label><input type="checkbox" id="sChatSave"></div>
   <div class="btns"><button type="button" id="sChatWipe" class="danger">Очистить чат здесь</button><button type="button" id="sBoardWipe" class="danger">Забыть сохранённое поле</button></div>
@@ -339,8 +372,8 @@ const objs=new Map();let log=[];const logKeys=new Set();let zMax=0;
 let sel=new Set();const view={x:0,y:0,z:1};
 const people=new Map();
 const TYPES=['stroke','line','rect','ellipse','token','text','cells'];
-const defaults=()=>({id:'',owner:'',on:'',type:'stroke',x:0,y:0,c:'#000000',a:1,s:3,f:0,w:0,h:0,pts:[],p:[],cells:[],cs:32,nm:'',sh:'circle',g:[],z:0,v:1,d:0,t0:0,r:0,ar:0,lk:0});
-let isAdmin=false,boardLocked=false,lockTs=0;
+const defaults=()=>({id:'',owner:'',on:'',type:'stroke',x:0,y:0,c:'#000000',a:1,s:3,f:0,w:0,h:0,pts:[],p:[],cells:[],cs:32,nm:'',sh:'circle',g:[],z:0,v:1,d:0,t0:0,r:0,ar:0,lk:0,ds:0});
+let isAdmin=false,boardLocked=false,chatMuted=false,lockTs=0;
 const alive=o=>o&&!o.d, mine=o=>o.owner===me.id||isAdmin, lockedOut=()=>boardLocked&&!isAdmin;
 const full=o=>{const r={};for(const k in o)if(k[0]!=='_')r[k]=o[k];return r};
 function mk(type,props){return Object.assign(defaults(),{id:rid()+rid(),owner:me.id,on:me.name,type,c:S.color,a:S.alpha,z:++zMax,t0:Date.now()},props)}
@@ -351,7 +384,7 @@ function sanitize(r){
   for(const k of ['c','nm','on','sh'])if(typeof r[k]==='string')o[k]=r[k].slice(0,k==='nm'?2000:60);
   for(const k of ['pts','p','cells'])if(Array.isArray(r[k])&&r[k].every(Number.isFinite))o[k]=r[k];
   if(Array.isArray(r.g))o.g=r.g.filter(x=>typeof x==='string').slice(0,8);
-  o.f=r.f?1:0;o.d=r.d?1:0;o.ar=r.ar?1:0;o.lk=r.lk?1:0;if(o.cs<=0)o.cs=32;
+  o.f=r.f?1:0;o.d=r.d?1:0;o.ar=r.ar?1:0;o.lk=r.lk?1:0;o.ds=r.ds?1:0;if(o.cs<=0)o.cs=32;
   zMax=Math.max(zMax,o.z);return o;
 }
 
@@ -450,9 +483,14 @@ function onMessage(str,link){
   }
   if(msg.m&&dedupe(msg.m))return;
   if(msg.t==='ops')remoteOps(msg);
-  else if(msg.t==='chat')chatAdd(msg.msg);
+  else if(msg.t==='chat'){if(!(chatMuted&&msg.adm!==ADMIN_HASH))chatAdd(msg.msg)}
   else if(msg.t==='ping')recvPing(msg);
   else if(msg.t==='lock')applyLock(msg);
+  else if(msg.t==='img')recvImg(msg);
+  else if(msg.t==='imgx'){if(msg.adm===ADMIN_HASH)hideTmpImg()}
+  else if(msg.t==='banner')recvBanner(msg);
+  else if(msg.t==='bannerx'){if(msg.adm===ADMIN_HASH)hideBanner()}
+  else if(msg.t==='goto')recvGoto(msg);
   else if(msg.t==='cur'||msg.t==='hello'){
     const u=msg.u;if(u&&typeof u.id==='string'&&u.id!==me.id){
       const p=people.get(u.id)||{};p.name=String(u.name||'?').slice(0,30);p.color=String(u.color||'#888').slice(0,20);p.seen=Date.now();
@@ -463,7 +501,7 @@ function onMessage(str,link){
   }
   const s=str;for(const l of links)if(l!==link)l.send(s);
 }
-function snapshotMsg(){return {t:'sync',objs:[...objs.values()].map(full),log,lock:lockTs?{on:boardLocked,ts:lockTs,adm:ADMIN_HASH}:undefined}}
+function snapshotMsg(){return {t:'sync',objs:[...objs.values()].map(full),log,lock:lockTs?{on:boardLocked,chat:chatMuted,ts:lockTs,adm:ADMIN_HASH}:undefined}}
 function sendHello(){broadcast({t:'hello',u:{id:me.id,name:me.name,color:me.color}})}
 function remoteOps(msg){
   if(typeof msg.by!=='string')return;
@@ -638,7 +676,7 @@ function drawToken(c,o){
 let alphaMul=1;
 function drawObj(c,o){
   c.save();c.translate(o.x,o.y);c.globalAlpha=clamp(o.a,0,1)*alphaMul;
-  const rr=rot(o);if(rr){const lc=lcenter(o);c.translate(lc[0],lc[1]);c.rotate(rr);c.translate(-lc[0],-lc[1])}c.strokeStyle=c.fillStyle=o.c;c.lineCap=c.lineJoin='round';c.lineWidth=o.s;
+  const rr=rot(o);if(rr){const lc=lcenter(o);c.translate(lc[0],lc[1]);c.rotate(rr);c.translate(-lc[0],-lc[1])}c.strokeStyle=c.fillStyle=o.c;c.lineCap=c.lineJoin='round';c.lineWidth=o.s;if(o.ds&&o.type!=='token'&&o.type!=='text')c.setLineDash([o.s*2.5,o.s*2]);
   try{switch(o.type){
     case 'stroke':strokePath(c,o.pts);c.stroke();break;
     case 'line':c.beginPath();c.moveTo(o.p[0],o.p[1]);c.lineTo(o.p[2],o.p[3]);c.stroke();
@@ -737,9 +775,9 @@ cv.addEventListener('pointerdown',e=>{
   }else if(t==='eraser'){
     begin();drag={k:'erase',last:w};eraseAt(w);
   }else if(t==='line'||t==='arrow'){
-    begin();const o=add(mk('line',{x:p.x,y:p.y,s:S.sizes[t],ar:t==='arrow'?1:0,p:[0,0,0,0]}));drag={k:'line',o,p0:p};
+    begin();const o=add(mk('line',{x:p.x,y:p.y,s:S.sizes[t],ar:t==='arrow'?1:0,ds:S.dash?1:0,p:[0,0,0,0]}));drag={k:'line',o,p0:p};
   }else if(t==='rect'||t==='ellipse'){
-    begin();const o=add(mk(t,{x:p.x,y:p.y,s:S.sizes[t],f:S.fill?1:0}));drag={k:'shape',o,p0:p};
+    begin();const o=add(mk(t,{x:p.x,y:p.y,s:S.sizes[t],f:S.fill?1:0,ds:S.dash?1:0}));drag={k:'shape',o,p0:p};
   }else if(t==='token'){
     begin();const o=add(mk('token',{x:p.x,y:p.y,s:S.sizes.token,nm:'Фишка',sh:S.shape,f:1,a:S.alpha}));drag={k:'token',o,p0:p};
   }else if(t==='text'){
@@ -922,19 +960,23 @@ const ACTIONS=[
 ['nudgeL10','Сдвинуть влево (крупно)','Shift+ArrowLeft'],['nudgeR10','Сдвинуть вправо (крупно)','Shift+ArrowRight'],['nudgeU10','Сдвинуть вверх (крупно)','Shift+ArrowUp'],['nudgeD10','Сдвинуть вниз (крупно)','Shift+ArrowDown'],
 ['undo','Отменить','Ctrl+KeyZ','Правка'],['redo','Повторить','Ctrl+Shift+KeyZ'],['redo2','Повторить (запасная)','Ctrl+KeyY'],
 ['fit','Показать всё','Digit0','Вид и общение'],['fitSel','К выделению','KeyF'],['zoomIn','Приблизить','Equal'],['zoomOut','Отдалить','Minus'],['pan','Двигать поле (удерживать)','Space'],['who','Кто здесь — обзор поля (удерживать)','Tab'],['chat','Показать / скрыть чат','KeyC'],
-['copy','Копировать','Ctrl+KeyC','Дополнительно'],['cut','Вырезать','Ctrl+KeyX'],['paste','Вставить','Ctrl+KeyV'],['pin','Закрепить / открепить','Ctrl+KeyL'],['toggleGrid','Показать / скрыть сетку','KeyG'],['toggleSnap','Привязка к сетке вкл/выкл','Shift+KeyG'],['zoom100','Масштаб 100%','Digit1']
+['copy','Копировать','Ctrl+KeyC','Дополнительно'],['cut','Вырезать','Ctrl+KeyX'],['paste','Вставить','Ctrl+KeyV'],['pin','Закрепить / открепить','Ctrl+KeyL'],['toggleGrid','Показать / скрыть сетку','KeyG'],['toggleSnap','Привязка к сетке вкл/выкл','Shift+KeyG'],['zoom100','Масштаб 100%','Digit1'],
+['adminMenu','Открыть меню администратора','KeyM','Администратор','a'],['adminLock','Заблокировать / разблокировать холст','Shift+KeyL','','a'],['adminMute','Отключить / включить чат','Shift+KeyM','','a'],
+['pingExcl','Метка ❗ (внимание)','Shift+Digit1','','a'],['pingAsk','Метка ❓ (вопрос)','Shift+Digit2','','a'],['pingDot','Метка ● (точка)','Shift+Digit3','','a'],
+['adminImage','Показать фото всем на время','Shift+KeyI','','a'],['adminImageX','Убрать фото у всех','','','a'],['adminGather','Показать всем мою область','','','a'],['adminBanner','Объявление / таймер для всех','','','a']
 ];
-const ACT=[];{let g='';for(const a of ACTIONS){if(a[3])g=a[3];ACT.push({id:a[0],name:a[1],def:a[2],grp:g})}}
+const ACT=[];{let g='';for(const a of ACTIONS){if(a[3])g=a[3];ACT.push({id:a[0],name:a[1],def:a[2],grp:g,adm:a[4]==='a'})}}
 let userKeys=jparse(store.get('cvs.keys'))||{};
 const bindOf=id=>Object.prototype.hasOwnProperty.call(userKeys,id)?userKeys[id]:ACT.find(a=>a.id===id).def;
 let keymap=new Map();
-function rebuildKeymap(){keymap=new Map();for(const a of ACT){const b=bindOf(a.id);if(b)keymap.set(b,a.id)}}
+function rebuildKeymap(){keymap=new Map();for(const a of ACT){const b=bindOf(a.id);if(b&&(!a.adm||isAdmin))keymap.set(b,a.id)}}
 rebuildKeymap();
 const comboOf=e=>/^(Control|Shift|Alt|Meta)(Left|Right)$/.test(e.code)?null:((e.ctrlKey||e.metaKey)?'Ctrl+':'')+(e.altKey?'Alt+':'')+(e.shiftKey?'Shift+':'')+e.code;
 const CODEL={Space:'Пробел',Delete:'Del',Backspace:'⌫',Escape:'Esc',Tab:'Tab',BracketRight:']',BracketLeft:'[',Period:'.',Comma:',',Equal:'=',Minus:'-',ArrowLeft:'←',ArrowRight:'→',ArrowUp:'↑',ArrowDown:'↓',Enter:'Enter'};
 function pretty(c){if(!c)return '—';return c.split('+').map(p=>CODEL[p]||p.replace(/^Key/,'').replace(/^Digit/,'').replace(/^Numpad/,'Num ')).join(' + ')}
 const NUDGE={nudgeL:[-1,0],nudgeR:[1,0],nudgeU:[0,-1],nudgeD:[0,1]};
 function runAction(id){
+  const A0=ACT.find(a=>a.id===id);if(A0&&A0.adm&&!isAdmin)return;
   if(id.startsWith('tool:'))return setTool(id.slice(5));
   switch(id){
     case 'group':groupSel();return;
@@ -942,7 +984,7 @@ function runAction(id){
     case 'dup':duplicateSel();return;
     case 'del':case 'del2':delSel();return;
     case 'selAll':setTool('select');sel=new Set(getOrder().map(o=>o.id));syncPanel();dirty();return;
-    case 'deselect':sel.clear();whoPinned=false;whoUpdateVis();syncPanel();dirty();return;
+    case 'deselect':sel.clear();whoPinned=false;$('#admMenu').hidden=true;whoUpdateVis();syncPanel();dirty();return;
     case 'front':zOrder(true);return;
     case 'back':zOrder(false);return;
     case 'rotCW':rotateSel(15);return;
@@ -971,6 +1013,16 @@ function runAction(id){
     case 'toggleGrid':S.grid=!S.grid;saveSet();syncPanelValues();dirty();toast(S.grid?'Сетка включена':'Сетка скрыта');return;
     case 'toggleSnap':S.snap=!S.snap;saveSet();syncPanelValues();toast(S.snap?'Привязка к сетке включена':'Привязка к сетке выключена');return;
     case 'zoom100':$('#bZoom').click();return;
+    case 'adminMenu':toggleAdmMenu();return;
+    case 'adminLock':setLock(!boardLocked);return;
+    case 'adminMute':setMute(!chatMuted);return;
+    case 'pingExcl':setPingKind('excl');return;
+    case 'pingAsk':setPingKind('ask');return;
+    case 'pingDot':setPingKind('dot');return;
+    case 'adminImage':$('#amFile').click();return;
+    case 'adminImageX':removeTmpImg();return;
+    case 'adminGather':gatherAll();return;
+    case 'adminBanner':toggleAdmMenu(true);setTimeout(()=>$('#amText').focus(),0);return;
   }
   const base=id.replace('10','');
   if(NUDGE[base]){const k=id.endsWith('10')?(S.snap?S.gs:10):1;nudge(NUDGE[base][0]*k,NUDGE[base][1]*k)}
@@ -1043,7 +1095,7 @@ function applyProp(k,v){
   const ed=editable(),all=selObjs();
   if(all.length&&!ed.length){toast('Чужие рисунки менять нельзя — сделайте копию (Ctrl+D)');syncPanel();return}
   const T=S.tool;
-  if(k==='color')S.color=v;else if(k==='alpha')S.alpha=v;else if(k==='fill')S.fill=v;else if(k==='shape')S.shape=v;
+  if(k==='color')S.color=v;else if(k==='alpha')S.alpha=v;else if(k==='fill')S.fill=v;else if(k==='dash')S.dash=v;else if(k==='shape')S.shape=v;
   else if(k==='size'&&S.sizes[T]!=null&&T!=='select'&&T!=='hand')S.sizes[T]=v;
   if(ed.length){
     const patch={color:{c:v},alpha:{a:v},size:null,fill:{f:v?1:0},shape:{sh:v},name:{nm:v}}[k];
@@ -1052,6 +1104,7 @@ function applyProp(k,v){
       else if(k==='fill'&&(o.type==='rect'||o.type==='ellipse'))upd(o,patch);
       else if(k==='shape'&&o.type==='token')upd(o,patch);
       else if(k==='name'&&(o.type==='token'||o.type==='text'))upd(o,patch);
+      else if(k==='dash'&&['line','rect','ellipse'].includes(o.type))upd(o,{ds:v?1:0});
       else if(k==='angle'){if(o.type!=='cells')upd(o,{r:v*Math.PI/180})}
       else if(k==='color'||k==='alpha')upd(o,patch);
     }});
@@ -1070,6 +1123,7 @@ function syncPanel(){
   $('#rowShape').style.display=t==='token'||types.has('token')?'':'none';
   $('#rowFill').style.display=['rect','ellipse'].includes(t)||types.has('rect')||types.has('ellipse')?'':'none';
   $('#rowWhole').style.display=t==='eraser'?'':'none';
+  $('#rowDash').style.display=['line','arrow','rect','ellipse'].includes(t)||types.has('line')||types.has('rect')||types.has('ellipse')?'':'none';
   $('#rowAngle').style.display=ed.length&&!ed.every(o=>o.type==='cells')?'':'none';
   $('#rowAlpha').style.display=t==='eraser'||t==='hand'||t==='ping'?'none':'';
   $('#rowColor').style.display=t==='eraser'||t==='hand'||t==='ping'?'none':'';
@@ -1084,7 +1138,7 @@ function syncPanelValues(first){
   $('#pColor').value=/^#[0-9a-f]{6}$/i.test(color)?color:'#000000';
   $('#pSize').value=size;$('#vSize').textContent=Math.round(size);
   $('#pAlpha').value=Math.round(alpha*100);$('#vAlpha').textContent=Math.round(alpha*100)+'%';
-  $('#pFill').checked=first?!!first.f:S.fill;$('#pShape').value=first&&first.type==='token'?first.sh:S.shape;
+  $('#pFill').checked=first?!!first.f:S.fill;$('#pDash').checked=first?!!first.ds:!!S.dash;$('#pShape').value=first&&first.type==='token'?first.sh:S.shape;
   $('#pWhole').checked=S.whole;
   {const r=first&&first.type!=='cells'?first.r||0:0,dg=((Math.round(r*180/Math.PI)%360)+360)%360;$('#pAngle').value=dg;$('#vAngle').textContent=dg+'°'}
   $('#gShow').checked=S.grid;$('#gSnap').checked=S.snap;$('#gSize').value=S.gs;$('#vGs').textContent=S.gs;
@@ -1337,7 +1391,7 @@ $('#fAdopt').onclick=()=>{
 addEventListener('pagehide',()=>{const p=jparse(store.get('cvs.me'));if(p&&p.id===me.id)store.set('cvs.lock',JSON.stringify({id:me.id,ts:0}))});
 document.addEventListener('click',e=>{const d=$('#fileMenu');if(d.open&&!d.contains(e.target))d.open=false});
 addEventListener('dragover',e=>e.preventDefault());
-addEventListener('drop',async e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f&&/json$/i.test(f.name))importJson(await f.text())});
+addEventListener('drop',async e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f&&/json$/i.test(f.name))importJson(await f.text());else if(f&&f.type.startsWith('image/')&&isAdmin)adminSendImage(f)});
 
 /* автосохранение */
 let saveT=0,saveWarn=false;
@@ -1572,7 +1626,7 @@ function goTo(r){
   if(l.length)fitView(l);else toast('У этого участника пока нет рисунков');
 }
 function whoList(ro){
-  const sig=ro.map(r=>r.id+r.online+r.n+r.name).join('|')+'|'+whoHi;if(sig===whoSig)return;whoSig=sig;
+  const sig=ro.map(r=>r.id+r.online+r.n+r.name).join('|')+'|'+whoHi+isAdmin;if(sig===whoSig)return;whoSig=sig;
   const box=$('#whoList');box.textContent='';whoThumbs.clear();
   const h=document.createElement('h4');h.textContent='Кто здесь';box.appendChild(h);
   ro.sort((a,b)=>(b.you?1:0)-(a.you?1:0)||(b.online?1:0)-(a.online?1:0)||(a.name<b.name?-1:1));
@@ -1586,6 +1640,7 @@ function whoList(ro){
     if(r.online&&r.vp){const t=document.createElement('canvas');t.width=190;t.height=110;t.className='thumb';row.appendChild(t);whoThumbs.set(r.id,t)}
     const go=document.createElement('button');go.type='button';go.textContent=r.you?'Мои рисунки':'Перейти';go.onclick=ev=>{ev.stopPropagation();goTo(r.you?Object.assign({},r,{you:false,online:false}):r)};
     row.appendChild(go);
+    if(isAdmin&&!r.you&&r.n>0){const wp=document.createElement('button');wp.type='button';wp.className='danger';wp.textContent='Удалить его рисунки';wp.onclick=ev=>{ev.stopPropagation();wipeOwner(r)};row.appendChild(wp)}
     row.onclick=()=>{whoHi=whoHi===r.id?null:r.id;whoSig='';whoRender()};
     box.appendChild(row);
   }
@@ -1668,9 +1723,9 @@ function chatToggle(open){
   if(show){chat.unread=0;updateChatBadge();chat.forceBottom=true;chatRender();setTimeout(()=>$('#chatIn').focus(),0)}
 }
 function chatSend(){
-  const inp=$('#chatIn'),t=inp.value.trim();if(!t)return;inp.value='';
+  const inp=$('#chatIn'),t=inp.value.trim();if(!t)return;if(chatMuted&&!isAdmin){toast('🔇 Администратор отключил чат');return}inp.value='';
   const m={id:rid()+rid(),t:Date.now(),u:me.id,name:me.name,color:me.color,text:t.slice(0,2000)};
-  chat.forceBottom=true;chatAdd(m);broadcast({t:'chat',msg:m});
+  chat.forceBottom=true;chatAdd(m);broadcast({t:'chat',msg:m,adm:admTag()});
 }
 /* история: любой подключённый участник отдаёт страницу сообщений, которых у вас ещё нет (хост хранит всё) */
 function chatServe(link,msg){
@@ -1727,6 +1782,7 @@ $('#keysReset').onclick=()=>{userKeys={};store.set('cvs.keys','{}');rebuildKeyma
 function renderKeys(){
   const box=$('#keysBox');box.textContent='';let g='';
   for(const a of ACT){
+    if(a.adm&&!isAdmin)continue;
     if(a.grp!==g){g=a.grp;const h=document.createElement('b');h.style.gridColumn='1/-1';h.style.marginTop='8px';h.textContent=g;box.appendChild(h)}
     const l=document.createElement('span');l.textContent=a.name;
     const w=document.createElement('span');w.style.display='flex';w.style.gap='4px';
@@ -1777,43 +1833,125 @@ function sha256hex(str){
 }
 const admTag=()=>isAdmin?ADMIN_HASH:undefined;
 function updateAdminUI(){
-  $('#admBadge').hidden=!isAdmin;$('#lockBadge').hidden=!boardLocked;
-  const b=$('#bLock');b.hidden=!isAdmin;b.textContent=boardLocked?'🔓 Разблокировать холст':'🔒 Заблокировать холст';
-  $('#admBox').hidden=!isAdmin;$('#admLogin').hidden=isAdmin;$('#sLock').textContent=b.textContent;
+  $('#admBadge').hidden=!isAdmin;$('#lockBadge').hidden=!boardLocked;$('#muteBadge').hidden=!chatMuted;
+  $('#admLogin').hidden=isAdmin;$('#admNote').hidden=!isAdmin;
+  $('#amLock').textContent=boardLocked?'🔓 Разблокировать холст':'🔒 Заблокировать холст';
+  $('#amMute').textContent=chatMuted?'🔊 Включить чат':'🔇 Отключить чат';
+  document.querySelectorAll('[data-pk]').forEach(b=>b.classList.toggle('on',b.dataset.pk===(S.pingKind||'excl')));
+  if(!isAdmin)$('#admMenu').hidden=true;
   const pt=toolsEl.querySelector('[data-tool=ping]');if(pt)pt.style.display=isAdmin?'':'none';
   if(!isAdmin&&S.tool==='ping')setTool('select');
-  syncPanel();dirty();
+  const ci=$('#chatIn');ci.disabled=chatMuted&&!isAdmin;ci.placeholder=ci.disabled?'Чат отключён администратором':'Сообщение…';
+  rebuildKeymap();syncPanel();dirty();
 }
 function applyLock(m){
   if(!m||m.adm!==ADMIN_HASH||!Number.isFinite(m.ts)||m.ts<=lockTs)return;
-  lockTs=m.ts;boardLocked=!!m.on;
+  lockTs=m.ts;boardLocked=!!m.on;chatMuted=!!m.chat;
   if(boardLocked&&!isAdmin&&G)commit();
   updateAdminUI();
-  if(!isAdmin)toast(boardLocked?'🔒 Администратор заблокировал холст: рисовать нельзя':'🔓 Холст разблокирован');
+  if(!isAdmin)toast(boardLocked?'🔒 Администратор заблокировал холст':'🔓 Холст разблокирован');
 }
-function setLock(on){
-  if(!isAdmin)return;lockTs=Date.now();boardLocked=on;
-  broadcast({t:'lock',on,ts:lockTs,adm:ADMIN_HASH});updateAdminUI();toast(on?'Холст заблокирован для всех, кроме администратора':'Холст разблокирован');
-}
+function pushState(){lockTs=Date.now();broadcast({t:'lock',on:boardLocked,chat:chatMuted,ts:lockTs,adm:ADMIN_HASH});updateAdminUI()}
+function setLock(on){if(!isAdmin)return;boardLocked=on;pushState();toast(on?'Холст заблокирован для всех, кроме вас':'Холст разблокирован')}
+function setMute(on){if(!isAdmin)return;chatMuted=on;pushState();toast(on?'Чат отключён для всех, кроме вас':'Чат включён')}
 $('#sAdmGo').onclick=()=>{
   const c=$('#sAdmCode').value.trim();$('#sAdmCode').value='';
-  if(sha256hex('cvs-admin:'+c)===ADMIN_HASH){isAdmin=true;store.set('cvs.adm','1');updateAdminUI();toast('Режим администратора включён');sendHello()}
+  if(sha256hex('cvs-admin:'+c)===ADMIN_HASH){isAdmin=true;store.set('cvs.adm','1');updateAdminUI();toast('Режим администратора включён — меню «👑 Админ» на верхней панели');sendHello()}
   else toast('Неверный код');
 };
 $('#sAdmCode').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('#sAdmGo').click()}});
-$('#sAdmOut').onclick=()=>{isAdmin=false;store.set('cvs.adm','0');updateAdminUI();toast('Вы вышли из режима администратора')};
-$('#bLock').onclick=()=>setLock(!boardLocked);$('#sLock').onclick=()=>setLock(!boardLocked);
 
-/* пинг: метка видна всем 5 секунд, за экраном — стрелка к ней у края */
-const pings=[];
+/* ----- меню администратора ----- */
+function toggleAdmMenu(force){if(!isAdmin)return;const m=$('#admMenu');m.hidden=force===undefined?!m.hidden:!force}
+$('#admBadge').onclick=e=>{e.stopPropagation();toggleAdmMenu()};
+document.addEventListener('click',e=>{const m=$('#admMenu');if(!m.hidden&&!m.contains(e.target)&&!$('#admBadge').contains(e.target))m.hidden=true});
+$('#amOut').onclick=()=>{isAdmin=false;store.set('cvs.adm','0');updateAdminUI();toast('Вы вышли из режима администратора')};
+$('#amLock').onclick=()=>setLock(!boardLocked);$('#amMute').onclick=()=>setMute(!chatMuted);
+function setPingKind(k){S.pingKind=k;saveSet();updateAdminUI();if(S.tool!=='ping')setTool('ping');toast('Метка: '+({excl:'❗ внимание',ask:'❓ вопрос',dot:'● точка'})[k]+' — клик по холсту (или Alt + клик)')}
+document.querySelectorAll('[data-pk]').forEach(b=>b.onclick=()=>setPingKind(b.dataset.pk));
+$('#amPingTool').onclick=()=>{setTool('ping');$('#admMenu').hidden=true};
+$('#amKeys').onclick=()=>{$('#admMenu').hidden=true;openSettings();setTimeout(()=>$('#keysBox').scrollIntoView(),60)};
+$('#amClear').onclick=()=>{
+  if(!isAdmin)return;const m=[...objs.values()].filter(o=>!o.d);if(!m.length){toast('Холст уже пуст');return}
+  if(!confirm('Удалить ВСЕ объекты на холсте у всех ('+m.length+')? Это можно отменить (Ctrl+Z).'))return;
+  begin();m.forEach(del);commit();syncPanel();toast('Холст очищен');
+};
+function wipeOwner(r){
+  const m=[...objs.values()].filter(o=>!o.d&&o.owner===r.id);if(!m.length)return;
+  if(!confirm('Удалить все рисунки участника «'+r.name+'» ('+m.length+')? Это можно отменить (Ctrl+Z).'))return;
+  begin();m.forEach(del);commit();toast('Удалено: '+m.length);
+}
+
+/* ----- фото на время ----- */
+const tmpEl=$('#tmpImg');let tmpT=0;
+function showTmpImg(m){
+  clearTimeout(tmpT);$('#tmpPic').src=m.data;$('#tmpCap').textContent=m.name?'📷 '+m.name:'';tmpEl.hidden=false;
+  const bar=$('#tmpBar i');bar.style.transition='none';bar.style.width='100%';void bar.offsetWidth;bar.style.transition='width '+m.dur+'s linear';bar.style.width='0%';
+  tmpT=setTimeout(hideTmpImg,m.dur*1000);
+}
+function hideTmpImg(){clearTimeout(tmpT);tmpEl.hidden=true;$('#tmpPic').removeAttribute('src')}
+function recvImg(m){
+  if(m.adm!==ADMIN_HASH||typeof m.data!=='string'||!/^data:image\/(jpeg|png|webp|gif);base64,/.test(m.data)||m.data.length>3e6)return;
+  showTmpImg({data:m.data,name:String(m.name||'').slice(0,30),dur:clamp(+m.dur||60,5,600)});
+}
+function removeTmpImg(){if(!isAdmin)return;broadcast({t:'imgx',adm:ADMIN_HASH});hideTmpImg()}
+async function adminSendImage(file){
+  if(!isAdmin)return;
+  if(!file||!file.type.startsWith('image/')){toast('Это не изображение');return}
+  try{
+    const bmp=await createImageBitmap(file);let data='';
+    for(const [mx,q] of [[1280,.82],[1024,.7],[800,.6],[640,.5]]){
+      const sc=Math.min(1,mx/Math.max(bmp.width,bmp.height)),c=document.createElement('canvas');
+      c.width=Math.max(1,Math.round(bmp.width*sc));c.height=Math.max(1,Math.round(bmp.height*sc));
+      const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(bmp,0,0,c.width,c.height);
+      data=c.toDataURL('image/jpeg',q);if(data.length<1.4e6)break;
+    }
+    const m={t:'img',id:rid(),data,dur:+$('#amDur').value||60,name:me.name,adm:ADMIN_HASH};
+    broadcast(m);showTmpImg(m);toast('Фото показано всем на '+m.dur+' с');
+  }catch(e){toast('Не удалось открыть изображение')}
+}
+$('#amImg').onclick=()=>$('#amFile').click();
+$('#amFile').onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)adminSendImage(f)};
+$('#amImgX').onclick=removeTmpImg;$('#tmpX').onclick=hideTmpImg;
+
+/* ----- объявление и таймер ----- */
+let bnT=0,bnEnd=0,bnCd=false;
+function tickBanner(){
+  const left=Math.max(0,bnEnd-Date.now());
+  $('#bnTime').textContent=bnCd?' · '+Math.floor(left/60000)+':'+String(Math.floor(left/1000)%60).padStart(2,'0'):'';
+  if(left<=0)hideBanner();
+}
+function showBanner(m){hideBanner();$('#bnText').textContent=m.text;bnCd=!!m.cd;bnEnd=Date.now()+m.dur*1000;$('#banner').hidden=false;tickBanner();bnT=setInterval(tickBanner,250)}
+function hideBanner(){clearInterval(bnT);bnT=0;$('#banner').hidden=true}
+function recvBanner(m){if(m.adm!==ADMIN_HASH||typeof m.text!=='string'||!m.text)return;showBanner({text:m.text.slice(0,200),dur:clamp(+m.dur||10,3,3600),cd:!!m.cd})}
+$('#amBn').onclick=()=>{
+  const text=$('#amText').value.trim();if(!text){toast('Введите текст объявления');return}
+  const m={t:'banner',text:text.slice(0,200),dur:clamp(+$('#amBnDur').value||10,3,3600),cd:$('#amCd').checked,adm:ADMIN_HASH};
+  broadcast(m);showBanner(m);
+};
+$('#amBnX').onclick=()=>{broadcast({t:'bannerx',adm:ADMIN_HASH});hideBanner()};
+
+/* ----- собрать всех в моей области ----- */
+function gatherAll(){if(!isAdmin)return;broadcast({t:'goto',vp:vpRect(),name:me.name,adm:ADMIN_HASH});toast('Всем показана ваша область')}
+function recvGoto(m){
+  if(m.adm!==ADMIN_HASH||isAdmin||!Array.isArray(m.vp)||m.vp.length!==4||!m.vp.every(Number.isFinite))return;
+  const w=Math.max(m.vp[2]-m.vp[0],1),h=Math.max(m.vp[3]-m.vp[1],1);
+  view.z=clamp(Math.min(W/w,H/h),.05,10);view.x=W/2-((m.vp[0]+m.vp[2])/2)*view.z;view.y=H/2-((m.vp[1]+m.vp[3])/2)*view.z;dirty();
+  toast((m.name||'Админ')+' показывает вам свою область');
+}
+$('#amGather').onclick=gatherAll;
+
+/* ----- пинг-метки: внимание, вопрос, точка; 5 секунд, за экраном — стрелка у края ----- */
+const pings=[],PK={excl:'!',ask:'?',dot:''};
 function addPing(m,local){
-  pings.push({x:m.x,y:m.y,t0:performance.now(),name:String(m.name||'Админ').slice(0,30),color:String(m.color||'#e5484d').slice(0,20)});
+  const k=PK[m.k]!==undefined?m.k:'dot';
+  pings.push({x:m.x,y:m.y,k,t0:performance.now(),name:String(m.name||'Админ').slice(0,30),color:String(m.color||'#e5484d').slice(0,20)});
   if(!local)toast((m.name||'Админ')+' указывает место на холсте');
   dirty();
 }
 function recvPing(m){if(m.adm===ADMIN_HASH&&Number.isFinite(m.x)&&Number.isFinite(m.y))addPing(m,false)}
 function sendPing(w){
-  if(!isAdmin)return;const m={t:'ping',x:Math.round(w.x),y:Math.round(w.y),name:me.name,color:me.color,adm:ADMIN_HASH};
+  if(!isAdmin)return;const m={t:'ping',x:Math.round(w.x),y:Math.round(w.y),k:S.pingKind||'excl',name:me.name,color:me.color,adm:ADMIN_HASH};
   broadcast(m);addPing(m,true);
 }
 function pingLabel(c,text,x,y,color){
@@ -1825,21 +1963,24 @@ function drawPings(c){
   for(let i=pings.length-1;i>=0;i--)if(now-pings[i].t0>5000)pings.splice(i,1);
   if(!pings.length)return;
   for(const p of pings){
-    const a=now-p.t0,fade=a>4000?(5000-a)/1000:1,s=toS(p.x,p.y),M=40;
+    const a=now-p.t0,fade=a>4000?(5000-a)/1000:1,s=toS(p.x,p.y),M=40,g=PK[p.k];
     c.save();c.fillStyle=c.strokeStyle=p.color;c.lineWidth=3;
     if(s.x>=0&&s.x<=W&&s.y>=0&&s.y<=H){
-      for(let k=0;k<3;k++){const ph=((a/1000)+k/3)%1;c.globalAlpha=fade*(1-ph);c.beginPath();c.arc(s.x,s.y,10+ph*46,0,Math.PI*2);c.stroke()}
-      c.globalAlpha=fade;c.beginPath();c.arc(s.x,s.y,7,0,Math.PI*2);c.fill();pingLabel(c,p.name,s.x+12,s.y-12,p.color);
+      for(let k=0;k<3;k++){const ph=((a/1000)+k/3)%1;c.globalAlpha=fade*(1-ph);c.beginPath();c.arc(s.x,s.y,12+ph*46,0,Math.PI*2);c.stroke()}
+      c.globalAlpha=fade;c.beginPath();c.arc(s.x,s.y,g?16:7,0,Math.PI*2);c.fill();
+      if(g){c.fillStyle=lum(p.color)>.6?'#111':'#fff';c.font='800 22px system-ui,sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(g,s.x,s.y+1)}
+      pingLabel(c,p.name,s.x+16,s.y-16,p.color);
     }else{
       const cx=W/2,cy=H/2,dx=s.x-cx,dy=s.y-cy,t=Math.min((cx-M)/Math.max(Math.abs(dx),1e-6),(cy-M)/Math.max(Math.abs(dy),1e-6)),x=cx+dx*t,y=cy+dy*t,an=Math.atan2(dy,dx);
       c.globalAlpha=fade*(.65+.35*Math.abs(Math.sin(a/150)));c.translate(x,y);c.rotate(an);
       c.beginPath();c.moveTo(20,0);c.lineTo(-10,-15);c.lineTo(-3,0);c.lineTo(-10,15);c.closePath();c.fill();
-      c.rotate(-an);c.globalAlpha=fade;pingLabel(c,p.name,-20,32,p.color);
+      c.rotate(-an);c.globalAlpha=fade;pingLabel(c,(g?g+' ':'')+p.name,-20,32,p.color);
     }
     c.restore();
   }
   dirty();
 }
+$('#pDash').onchange=e=>applyProp('dash',e.target.checked);
 
 /* ============================== буфер обмена, закрепление, прочее ============================== */
 let clip=[];
